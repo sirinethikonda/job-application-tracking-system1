@@ -171,6 +171,6 @@ Monitoring and logging
 
 👤 Author
 
-GAnisetti Sirinethi konda
+Ganisetti Sirinethi konda
 Backend Developer – Java & Spring Boot
 
