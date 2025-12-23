@@ -1,6 +1,6 @@
 # Job Application Tracking System (ATS) – Backend
 
-## 📌 Project Overview
+##  Project Overview
 The **Job Application Tracking System (ATS)** is a backend application designed to manage the complete hiring workflow for companies.  
 It goes beyond basic CRUD operations by implementing **workflow state management, role-based access control (RBAC), asynchronous notifications, and audit logging**.
 
@@ -8,7 +8,7 @@ This project simulates **real-world enterprise backend architecture** using Java
 
 ---
 
-## 🎯 Objectives
+##  Objectives
 - Manage job postings and candidate applications
 - Enforce a strict application workflow (state machine)
 - Implement secure role-based access control
@@ -17,7 +17,7 @@ This project simulates **real-world enterprise backend architecture** using Java
 
 ---
 
-## 👥 User Roles & Permissions
+##  User Roles & Permissions
 
 | Role | Capabilities |
 |-----|--------------|
@@ -29,7 +29,59 @@ All endpoints are protected based on user roles.
 
 ---
 
-## 🔁 Application Workflow (State Machine)
+## Project Structure
+```
+MySpringBootProject/
+├── src/main/java/com/example/demo/
+│   ├── auth/                       
+│   │   ├── AuthController.java     (Login/Register)
+│   │   ├── AuthService.java
+│   │   └── AuthRequestDto.java
+│   │
+│   ├── application/                <-- Job Applications (Requirement 1 & 5)
+│   │   ├── Application.java        
+│   │   ├── ApplicationHistory.java 
+│   │   ├── ApplicationController.java 
+│   │   ├── ApplicationRepository.java
+│   │   └── ApplicationHistoryRepository.java
+│   │
+│   ├── jobs/                       <-- Job Management
+│   │   ├── Job.java                
+│   │   ├── JobController.java      
+│   │   └── JobRepository.java
+│   │
+│   ├── user/                      
+│   │   ├── User.java               
+│   │   ├── UserRepository.java
+│   │   └── UserDetailsServiceImpl.java
+│   │
+│   ├── state/                      <-- Business Logic (Requirement 1)
+│   │   └── ApplicationStageService.java (State Machine Logic)
+│   │
+│   ├── messaging/                  
+│   │   ├── MessageProducer.java    (Sends to RabbitMQ)
+│   │   └── EmailListener.java      
+│   │
+│   ├── config/                     <-- Infrastructure & Security
+│   │   ├── SecurityConfig.java     
+│   │   ├── JwtAuthFilter.java      (JWT Validation)
+│   │   ├── JwtUtils.java           
+│   │   └── RabbitMQConfig.java     (
+│   
+│   
+│
+├── src/main/resources/
+│   ├── application.properties      
+│   └── templates/                  
+│
+├── docker-compose.yml              
+├── pom.xml                        
+└── README.md
+ 
+ ```
+                      
+
+##  Application Workflow (State Machine)
 
 Applications follow a predefined workflow:
 APPLIED → SCREENING → INTERVIEW → OFFER → HIRED
@@ -37,13 +89,13 @@ APPLIED → SCREENING → INTERVIEW → OFFER → HIRED
 REJECTED (from any stage)
 
 
-- ❌ Invalid transitions are blocked
-- ✅ Valid transitions only are allowed
-- 🔒 Logic enforced in service layer
+-  Invalid transitions are blocked
+-  Valid transitions only are allowed
+-  Logic enforced in service layer
 
 ---
 
-## 🧱 System Architecture
+## System Architecture
 
 The project follows a **layered architecture**:
 
@@ -58,7 +110,7 @@ This ensures clean separation of concerns and scalability.
 
 ---
 
-## 🛠 Technology Stack
+## Technology Stack
 
 | Category | Technology |
 |-------|-----------|
@@ -75,7 +127,7 @@ This ensures clean separation of concerns and scalability.
 
 ---
 
-## 🗄 Database Design
+##  Database Design
 
 Main tables:
 - `companies`
@@ -89,7 +141,7 @@ Each application stage change is recorded in `application_history`.
 
 ---
 
-## 🔐 Authentication & Authorization
+## Authentication & Authorization
 
 - JWT-based authentication
 - Stateless session management
@@ -98,7 +150,7 @@ Each application stage change is recorded in `application_history`.
 
 ---
 
-## 📬 Asynchronous Processing
+## Asynchronous Processing
 
 - RabbitMQ is used for background processing
 - Events are published when:
@@ -108,10 +160,10 @@ Each application stage change is recorded in `application_history`.
 
 ---
 
-## 🚀 How to Run the Project
+##  How to Run the Project
 
-### 1️⃣ Start Infrastructure (MySQL + RabbitMQ)
-🔌 API Endpoints Overview
+###  Start Infrastructure (MySQL + RabbitMQ)
+ API Endpoints Overview
 Authentication
 
 POST /auth/register
@@ -136,7 +188,7 @@ GET /me/applications
 
 GET /jobs/{jobId}/applications
 
-🧪 Testing
+ Testing
 
 APIs tested using Postman
 
@@ -148,7 +200,7 @@ Invalid transitions correctly blocked
 
 Database state verified after each operation
 
-✅ Key Highlights
+ Key Highlights
 
 ✔ Workflow state machine
 ✔ Role-based access control
@@ -157,7 +209,7 @@ Database state verified after each operation
 ✔ Clean layered architecture
 ✔ Evaluation-ready backend system
 
-📦 Future Enhancements
+ Future Enhancements
 
 Email service integration (SendGrid / SES)
 
@@ -169,7 +221,7 @@ Search functionality
 
 Monitoring and logging
 
-👤 Author
+##Author
 
 Ganisetti Sirinethi konda
 Backend Developer – Java & Spring Boot

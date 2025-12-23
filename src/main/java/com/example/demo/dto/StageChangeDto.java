@@ -1,6 +1,6 @@
 package com.example.demo.dto;
 
-import com.example.demo.application.ApplicationStage;
+import com.example.demo.state.ApplicationStage;
 // *** DELETED: jakarta.validation.constraints.NotNull ***
 import lombok.Data;
 import lombok.NoArgsConstructor;

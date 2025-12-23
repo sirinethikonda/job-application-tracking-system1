@@ -1,7 +1,7 @@
 package com.example.demo.dto;
 
 import com.example.demo.application.Application;
-import com.example.demo.application.ApplicationStage;
+import com.example.demo.state.ApplicationStage;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

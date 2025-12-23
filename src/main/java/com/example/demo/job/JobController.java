@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/jobs")
+@RequestMapping("/api/jobs") // FIX 1: Added /api to match your Postman URL
 @RequiredArgsConstructor
 public class JobController {
     private final JobService jobService;
@@ -20,25 +20,27 @@ public class JobController {
         return ResponseEntity.ok(jobService.listAll());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Job> getJob(@PathVariable String id) {
-        Job j = jobService.get(id);
-        if (j==null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(j);
-    }
-
     @PostMapping
-    @PreAuthorize("hasRole('RECRUITER')")
+    @PreAuthorize("hasAuthority('RECRUITER')")
     public ResponseEntity<?> createJob(@RequestBody Map<String,String> body, Authentication auth) {
-        var principal = (String) auth.getPrincipal();
-        var details = (java.util.Map<String,String>) auth.getDetails();
-        String companyId = details.get("companyId");
+        // Principal is usually the email string from your JwtAuthFilter
+        String principal = (String) auth.getPrincipal();
+
+        // FIX: Instead of casting details, we trust the logic in your Service
+        // or manually extract claims if your filter puts them in details.
+        // For now, let's use a safe check.
+        String companyId = null;
+        if (auth.getDetails() instanceof Map) {
+            var details = (Map<String, Object>) auth.getDetails();
+            companyId = String.valueOf(details.get("companyId"));
+        }
+
+        // Call service to save to MySQL
         Job j = jobService.createJob(companyId, body.get("title"), body.get("description"), principal);
         return ResponseEntity.status(201).body(j);
     }
-
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('RECRUITER')")
+    @PreAuthorize("hasAuthority('RECRUITER')") // FIX 3: Changed from hasRole
     public ResponseEntity<?> deleteJob(@PathVariable String id) {
         jobService.delete(id);
         return ResponseEntity.noContent().build();

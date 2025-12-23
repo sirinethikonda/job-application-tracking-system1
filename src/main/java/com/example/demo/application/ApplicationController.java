@@ -5,145 +5,84 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @RestController
+@RequestMapping("/api")
 public class ApplicationController {
 
-    @Autowired
-    private ApplicationRepository applicationRepository;
+    @Autowired private ApplicationRepository applicationRepository;
+    @Autowired private ApplicationHistoryRepository historyRepository;
+    @Autowired private ApplicationStageService stageService;
+    @Autowired private org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
 
-    @Autowired
-    private ApplicationHistoryRepository historyRepository;
-
-    @Autowired
-    private ApplicationStageService stageService;
-
-    @Autowired
-    private org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
-
-    @Autowired
-    private com.example.demo.job.JobRepository jobRepository;
-
-    @PostMapping("/jobs/{jobId}/apply")
-    @PreAuthorize("hasRole('CANDIDATE')")
-    public ResponseEntity<?> apply(@PathVariable String jobId, Authentication auth) {
-        String candidateId = (String) auth.getPrincipal();
-        if (applicationRepository.existsByJobIdAndCandidateId(jobId, candidateId))
-            return ResponseEntity.badRequest().body("Already applied");
-
-        var jobOpt = jobRepository.findById(jobId);
-        if (jobOpt.isEmpty()) return ResponseEntity.badRequest().body("Job not found");
-
+    // REQUIREMENT 5: POST Application (Transaction: Application + History)
+    @PostMapping("/applications")
+    @PreAuthorize("hasAuthority('CANDIDATE')")
+    @Transactional
+    public ResponseEntity<?> apply(@RequestBody Map<String, String> body, Authentication auth) {
         Application app = new Application();
         app.setId(UUID.randomUUID().toString());
-        app.setJobId(jobId);
-        app.setCandidateId(candidateId);
+        app.setJobId(body.get("jobId"));
+        app.setCandidateEmail(auth.getName());
+        app.setResumeUrl(body.get("resumeUrl"));
         app.setStage("APPLIED");
-        app.setAppliedAt(Timestamp.from(Instant.now()));
-        app.setUpdatedAt(Timestamp.from(Instant.now()));
+        app.setCreatedAt(Timestamp.from(Instant.now()));
         applicationRepository.save(app);
 
+        // Audit Trail entry
         ApplicationHistory hist = new ApplicationHistory();
         hist.setId(UUID.randomUUID().toString());
         hist.setApplicationId(app.getId());
-        hist.setPreviousStage(null);
         hist.setNewStage("APPLIED");
-        hist.setChangedBy(candidateId);
+        hist.setChangedBy(auth.getName());
         hist.setCreatedAt(Timestamp.from(Instant.now()));
         historyRepository.save(hist);
-
-        Map<String,Object> payload = new HashMap<>();
-        payload.put("applicationId", app.getId());
-        payload.put("jobId", jobId);
-        payload.put("candidateId", candidateId);
-        payload.put("stage", "APPLIED");
-        rabbitTemplate.convertAndSend("application.events", "APPLICATION_CREATED", payload);
 
         return ResponseEntity.status(201).body(app);
     }
 
-    @GetMapping("/me/applications")
-    @PreAuthorize("hasRole('CANDIDATE')")
-    public ResponseEntity<List<Application>> myApplications(Authentication auth) {
-        String candidateId = (String) auth.getPrincipal();
-        return ResponseEntity.ok(applicationRepository.findByCandidateId(candidateId));
-    }
-
-    @GetMapping("/jobs/{jobId}/applications")
-    @PreAuthorize("hasRole('RECRUITER')")
-    public ResponseEntity<List<Application>> listForJob(@PathVariable String jobId,
-                                                        @RequestParam(required=false) String stage) {
-        if (stage == null) return ResponseEntity.ok(applicationRepository.findByJobId(jobId));
-        return ResponseEntity.ok(applicationRepository.findByJobIdAndStage(jobId, stage));
-    }
-
-    @GetMapping("/applications/{id}")
-    public ResponseEntity<?> getApplication(@PathVariable String id, Authentication auth) {
-        var appOpt = applicationRepository.findById(id);
-        if (appOpt.isEmpty()) return ResponseEntity.notFound().build();
-
-        Application app = appOpt.get();
-        @SuppressWarnings("unchecked")
-        var details = (Map<String,String>) auth.getDetails();
-        String role = details.getOrDefault("role","");
-        String userId = (String) auth.getPrincipal();
-        if ("CANDIDATE".equals(role) && !app.getCandidateId().equals(userId)) return ResponseEntity.status(403).body("Forbidden");
-        return ResponseEntity.ok(app);
-    }
-
+ // REQUIREMENT 1 & 7: PATCH Stage (State Machine + Messaging)
     @PatchMapping("/applications/{id}/stage")
-    @PreAuthorize("hasAnyRole('RECRUITER','HIRING_MANAGER')")
+    @PreAuthorize("hasAuthority('RECRUITER')")
+    @Transactional
     public ResponseEntity<?> changeStage(@PathVariable String id, @RequestBody Map<String,String> body, Authentication auth) {
         String target = body.get("targetStage");
-        String reason = body.get("reason");
-        String changedBy = (String) auth.getPrincipal();
+        
+        Application app = applicationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
 
-        var appOpt = applicationRepository.findById(id);
-        if (appOpt.isEmpty()) return ResponseEntity.notFound().build();
-        Application app = appOpt.get();
-
-        // Validate allowed transition
-        try {
-            stageService.validate(app.getStage(), target);
-        } catch (IllegalStateException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
-        }
+        // Validation using State Machine (Requirement 1)
+        stageService.validate(app.getStage(), target);
 
         String prev = app.getStage();
         app.setStage(target);
         app.setUpdatedAt(Timestamp.from(Instant.now()));
         applicationRepository.save(app);
 
+        // Requirement 5: Update Audit History in the same Transaction
         ApplicationHistory hist = new ApplicationHistory();
         hist.setId(UUID.randomUUID().toString());
         hist.setApplicationId(id);
         hist.setPreviousStage(prev);
         hist.setNewStage(target);
-        hist.setChangedBy(changedBy);
-        hist.setReason(reason);
+        hist.setChangedBy(auth.getName());
         hist.setCreatedAt(Timestamp.from(Instant.now()));
         historyRepository.save(hist);
 
-        Map<String,Object> payload = new HashMap<>();
-        payload.put("applicationId", id);
-        payload.put("previous", prev);
-        payload.put("new", target);
-        payload.put("changedBy", changedBy);
-        rocketPublish(payload, "APPLICATION_STAGE_CHANGED");
+        // REQUIREMENT 7: Send Async Message
+        Map<String,Object> msg = new HashMap<>();
+        msg.put("appId", id);
+        msg.put("newStage", target);
+        msg.put("email", app.getCandidateEmail());
+
+        // FIX: Routing Key must match "application.#" from your config
+        rabbitTemplate.convertAndSend("application.events", "application.stage.changed", msg);
 
         return ResponseEntity.ok(app);
-    }
-
-    // helper
-    private void rocketPublish(Map<String,Object> payload, String routingKey) {
-        rabbitTemplate.convertAndSend("application.events", routingKey, payload);
     }
 }
