@@ -221,6 +221,18 @@ Search functionality
 
 Monitoring and logging
 
+##Configuration & Secrets
+
+To satisfy Requirement 6, this project uses Environment Variables. To run the application, you must set the following variables in your environment :
+
+```
+Variable,Description,Example Value
+DB_PASSWORD,Your MySQL Root Password,your_password
+JWT_SECRET,Secret key for JWT signing,AnyLongSecretKey123!
+EMAIL_PASS,Gmail App Password (16 digits),abcd efgh ijkl mnop
+
+ ```
+
 ##Author
 
 Ganisetti Sirinethi konda

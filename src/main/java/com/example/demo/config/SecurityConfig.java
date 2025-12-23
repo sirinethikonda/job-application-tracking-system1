@@ -41,7 +41,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 1. Public Endpoints
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/companies/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/companies/**").permitAll()
 
                 // 2. Requirement 4: Role-Based Access Control (RBAC)
                 // Jobs: Only Recruiter creates; Anyone authenticated can view
